@@ -7,25 +7,25 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 
-	"github/boynton.com/ca"
+	"github.com/boynton/ca"
 )
 
-func Client(identity string) (*http.Client, error) {
-	tr, err := ClientTransport(identity)
+func Client(identity, serverIdentity string) (*http.Client, error) {
+	tr, err := ClientTransport(identity, serverIdentity)
 	if err != nil {
 		return nil, err
 	}
 	return &http.Client{Transport: tr}, nil
 }
 
-func ClientTransport(identity string) (*http.Transport, error) {
+func ClientTransport(identity, serverIdentity string) (*http.Transport, error) {
 	conf, err := TLSConfig(identity)
+	conf.ServerName = serverIdentity
 	if err != nil {
 		return nil, err
 	}
-	return &http.Transport{TLSClientConfig: config}
+	return &http.Transport{TLSClientConfig: conf}, nil
 }
 
 // RunServer - run an https server with the given identity (hostname) on the given port,
@@ -36,7 +36,8 @@ func Serve(identity string, port int, handler http.Handler) error {
 	if err != nil {
 		return err
 	}
-	endpoint := fmt.Sprintf("%s:%d", identity, port)
+	//endpoint := fmt.Sprintf("%s:%d", identity, port)
+	endpoint := fmt.Sprintf(":%d", port)
 	listener, err := tls.Listen("tcp", endpoint, conf)
 	if err != nil {
 		return err
@@ -78,11 +79,11 @@ func TLSConfig(identity string) (*tls.Config, error) {
 	config := &tls.Config{}
 	config.Certificates = make([]tls.Certificate, 1)
 	config.Certificates[0] = mycert
-
 	certPool := x509.NewCertPool()
 	if !certPool.AppendCertsFromPEM(capem) {
 		return nil, fmt.Errorf("Cannot append certs to TLS certificate pool")
 	}
+	config.RootCAs = certPool
 	config.ClientCAs = certPool
 
 	//config.ClientAuth = tls.RequireAndVerifyClientCert

@@ -27,6 +27,14 @@ func initDir() string {
 	return d + "/"
 }
 
+func SetDir(d string) {
+	//mainly for testing in other packages
+	if !strings.HasSuffix(d, "/") {
+		d = d + "/"
+	}
+	dir = d
+}
+
 func Dir() string {
 	return dir
 }

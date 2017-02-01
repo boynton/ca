@@ -2,22 +2,31 @@ package https
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"testing"
+	"time"
+
+	"github.com/boynton/ca"
 )
 
 func TestHttps(test *testing.T) {
-	dir = "./test_root/"
+	ca.SetDir("test_root/")
 	os.RemoveAll(ca.Dir())
 	err := ca.EnsureDir()
 	if err != nil {
 		test.Errorf("Cannot ensure CA directory: %v", err)
 		return
 	}
-	_, err = ca.GenerateDefaultConfig()
+	conf, err := ca.GenerateDefaultConfig()
 	if err != nil {
 		test.Errorf("Cannot create default config: %v", err)
+		return
+	}
+	err = ca.Init(conf)
+	if err != nil {
+		test.Errorf("Cannot init CA: %v", err)
 		return
 	}
 	err = ca.CreateCert(conf, "test_server", "", "", "")
@@ -25,19 +34,19 @@ func TestHttps(test *testing.T) {
 		test.Errorf("Cannot create server cert for test: %v", err)
 		return
 	}
-	err = CreateCert(conf, "test_client", "", "", "")
+	err = ca.CreateCert(conf, "test_client", "", "", "")
 	if err != nil {
 		test.Errorf("Cannot create client cert for test: %v", err)
 		return
 	}
 
-	go testServer("test_server")
+	go testServer(test, "test_server")
 	time.Sleep(1 * time.Second)
-	testClient("test_client")
+	testClient(test, "test_client", "test_server")
 }
 
-func testServer(identity string) {
-	err = Serve(identity, 4443, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func testServer(test *testing.T, identity string) {
+	err := Serve(identity, 4443, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := ClientIdentity(r)
 		if user == "" {
 			fmt.Println("[Not authenticated: no client certs found]")
@@ -54,30 +63,31 @@ func testServer(identity string) {
 	}
 }
 
-func testClient(identity string) {
-	hclient, err := Client(identity)
+func testClient(test *testing.T, identity, serverIdentity string) {
+	hclient, err := Client(identity, serverIdentity)
 	if err != nil {
-		fmt.Println("fail: cannot create client:", err)
+		test.Errorf("fail: cannot create client:", err)
+		return
 	}
-	req, err := http.NewRequest("GET", "https://"+identity+":4443/", nil)
+	req, err := http.NewRequest("GET", "https://localhost:4443/", nil)
 	if err != nil {
-		fmt.Println("fail: cannot form GET request:", err)
+		test.Errorf("fail: cannot form GET request:", err)
 		return
 	}
 	resp, err := hclient.Do(req)
 	if err != nil {
-		fmt.Println("fail: cannot perform GET request:", err)
+		test.Errorf("fail: cannot perform GET request:", err)
 		return
 	}
 	content, err := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {
-		fmt.Println("no response content:", err)
+		test.Errorf("no response content:", err)
 		return
 	}
 	if resp.StatusCode == 200 && string(content) == "OK" {
-		fmt.Printf("OK: got expected response (%d): %s\n", resp.StatusCode, string(content))
+		fmt.Printf("[got expected response (%d): %s]\n", resp.StatusCode, string(content))
 	} else {
-		fmt.Println("FAIL: unexpected response")
+		test.Errorf("Enexpected response: (%v) %s", resp.StatusCode, string(content))
 	}
 }

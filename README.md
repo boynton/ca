@@ -198,7 +198,7 @@ You also can just get the config for the server:
 
 To require that the client have a cert to authenticate, you can do something like this:
 
-	err = RunServer(identity, 4443, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	err = RunServer(serverIdentity, 4443, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := https.ClientIdentity(r)
 		if user == "" {
 			fmt.Println("[Not authenticated: no client certs found]")
@@ -213,9 +213,10 @@ To require that the client have a cert to authenticate, you can do something lik
 
 A Client can be created that uses the client cert:
 
-    url := "https://192.168.1.7:4443"
-    transport, err := https.ClientTransport("clientidentity")
+    url := "https://localhost:4443"
+    transport, err := https.ClientTransport(clientIdentity, serverIdentity)
     client = &http.Client{Transport: transport}
     req, err := http.NewRequest("GET", url + "/", nil)
     resp, err := hclient.Do(req)
 
+The serverIdentity is provided so that the identity doesn't has to match the DNS name of the server (i.e. "localhost").
