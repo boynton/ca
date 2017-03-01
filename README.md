@@ -191,7 +191,7 @@ Here is a simple file server that serves up TLS to avoid snooping:
 
 You also can just get the config for the server:
 
-    tdlConfig, err := https.ServerConfig("myserver")
+    tdsConfig, err := https.ServerConfig("myserver")
     listener, err := tls.Listen("tcp", "myserver:4443", tlsConfig)
     http.Serve(listener, handler)
 
